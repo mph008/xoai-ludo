@@ -1,0 +1,806 @@
+﻿<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Xoài chơi cá ngựa</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    :root {
+      --cs: 50px;
+      --red: #ef4444; --red-l: #3b0a0a; --red-d: #7f1d1d;
+      --blue: #3b82f6; --blue-l: #0a1628; --blue-d: #1e3a5f;
+      --green: #22c55e; --green-l: #052e16; --green-d: #14532d;
+      --yellow: #eab308; --yellow-l: #1c1407; --yellow-d: #713f12;
+      --accent: #dc2626;
+      --gold: #d4af37;
+    }
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background:
+        linear-gradient(rgba(0,0,0,.72), rgba(10,0,0,.82)),
+        url('https://wallpapers.com/images/featured-full/dark-avengers-27iqznzroib1dxqg.jpg') center/cover fixed;
+      min-height: 100vh;
+      font-family: 'Segoe UI', system-ui, sans-serif;
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      padding: 16px 12px; gap: 10px; overflow-x: hidden;
+    }
+    h1 { color: var(--gold); font-size: 2.4rem; font-weight: 900; letter-spacing: 4px;
+         text-shadow: 0 0 28px rgba(220,38,38,.9), 0 2px 10px #000; }
+    .sub { color: #fca5a5; font-size: .85rem; }
+    #main { display: flex; gap: 18px; align-items: flex-start; flex-wrap: wrap; justify-content: center; }
+
+    /* BOARD */
+    #board-wrap {
+      background: #1a0505; border: 2px solid rgba(220,38,38,.4);
+      border-radius: 10px; padding: 3px;
+      box-shadow: 0 0 40px rgba(220,38,38,.25), 0 20px 60px #000a; flex-shrink: 0;
+    }
+    #board {
+      display: grid;
+      grid-template-columns: repeat(11, var(--cs));
+      grid-template-rows: repeat(11, var(--cs));
+      gap: 2px;
+    }
+    .cell {
+      width: var(--cs); height: var(--cs);
+      border-radius: 6px; display: flex; align-items: center; justify-content: center;
+      position: relative; transition: transform .15s, box-shadow .15s;
+      font-size: 9px; font-weight: 700; color: rgba(255,255,255,.15);
+    }
+    .cell.empty { background: transparent; }
+    .cell.path { background: #1c1c1c; border: 1.5px solid #333; }
+
+    /* Entry cells */
+    .cell.entry-red    { background: #3b0a0a; border: 2px solid #dc2626; box-shadow: inset 0 0 10px rgba(220,38,38,.4); }
+    .cell.entry-blue   { background: #0a1628; border: 2px solid #3b82f6; box-shadow: inset 0 0 10px rgba(59,130,246,.4); }
+    .cell.entry-green  { background: #052e16; border: 2px solid #22c55e; box-shadow: inset 0 0 10px rgba(34,197,94,.4); }
+    .cell.entry-yellow { background: #1c1407; border: 2px solid #eab308; box-shadow: inset 0 0 10px rgba(234,179,8,.4); }
+    .cell.entry-red::before,.cell.entry-blue::before,.cell.entry-green::before,.cell.entry-yellow::before {
+      content:'⭐'; font-size:10px; position:absolute; top:1px; right:1px; line-height:1; pointer-events:none; opacity:.6;
+    }
+
+    /* Home lanes */
+    .cell.home-red    { background: #2a0707; border: 1.5px solid #991b1b; }
+    .cell.home-blue   { background: #070f1f; border: 1.5px solid #1e40af; }
+    .cell.home-green  { background: #042010; border: 1.5px solid #166534; }
+    .cell.home-yellow { background: #130e04; border: 1.5px solid #854d0e; }
+
+    /* Barn corners */
+    .cell.barn-red    { background: #2a0707; border: 2px solid #7f1d1d; border-radius: 50%; }
+    .cell.barn-blue   { background: #070f1f; border: 2px solid #1e3a5f; border-radius: 50%; }
+    .cell.barn-green  { background: #042010; border: 2px solid #14532d; border-radius: 50%; }
+    .cell.barn-yellow { background: #130e04; border: 2px solid #713f12; border-radius: 50%; }
+
+    /* Quadrant tints */
+    .cell.quad-red    { background: rgba(220,38,38,.04); border: 1px dashed rgba(220,38,38,.15); }
+    .cell.quad-blue   { background: rgba(59,130,246,.04); border: 1px dashed rgba(59,130,246,.15); }
+    .cell.quad-green  { background: rgba(34,197,94,.04);  border: 1px dashed rgba(34,197,94,.15); }
+    .cell.quad-yellow { background: rgba(234,179,8,.04);  border: 1px dashed rgba(234,179,8,.15); }
+
+    /* Center */
+    .cell.center {
+      background: conic-gradient(from 0deg, #3b0a0a 0 90deg, #1c1407 90deg 180deg, #052e16 180deg 270deg, #0a1628 270deg 360deg);
+      border: 2px solid rgba(212,175,55,.5);
+      box-shadow: 0 0 12px rgba(212,175,55,.3);
+    }
+
+    /* Selectable */
+    .cell.selectable { box-shadow: 0 0 0 2.5px var(--gold), 0 0 14px 3px rgba(212,175,55,.5); animation: glow .7s infinite alternate; cursor: pointer; }
+    @keyframes glow { from{box-shadow:0 0 0 2px var(--gold),0 0 8px 2px rgba(212,175,55,.4)} to{box-shadow:0 0 0 3px var(--gold),0 0 20px 7px rgba(212,175,55,.6)} }
+
+    /* PIECES */
+    .piece {
+      width: 34px; height: 34px; border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 18px; line-height: 1;
+      border: 2.5px solid rgba(255,255,255,.2);
+      box-shadow: 0 3px 8px #000a, inset 0 1.5px 3px #ffffff33;
+      transition: transform .25s cubic-bezier(.175,.885,.32,1.275), box-shadow .25s;
+      user-select: none; z-index: 3; position: relative;
+    }
+    .piece.red    { background: radial-gradient(circle at 35% 35%, #f87171, #7f1d1d); }
+    .piece.red img  { width:28px; height:28px; object-fit:contain; pointer-events:none; }
+    .piece.blue   { background: radial-gradient(circle at 35% 35%, #60a5fa, #1e3a5f); }
+    .piece.blue img { width:28px; height:28px; object-fit:contain; pointer-events:none; }
+    .piece.green  { background: radial-gradient(circle at 35% 35%, #4ade80, #14532d); }
+    .piece.green img{ width:28px; height:28px; object-fit:contain; pointer-events:none; }
+    .piece.yellow { background: radial-gradient(circle at 35% 35%, #fde047, #713f12); }
+    .piece.yellow img{width:28px; height:28px; object-fit:contain; pointer-events:none; }
+    .piece.clickable { cursor: pointer; animation: bounce .55s infinite alternate; }
+    .piece.selected  { transform: scale(1.25) translateY(-5px); box-shadow: 0 6px 16px #000a, 0 0 14px 5px var(--gold); }
+    @keyframes bounce { from{transform:translateY(0)} to{transform:translateY(-6px)} }
+    .stack { display:flex; gap:2px; flex-wrap:wrap; align-items:center; justify-content:center; width:100%; height:100%; padding:2px; }
+    .stack .piece { width:22px; height:22px; font-size:13px; line-height:1; border-width:1.5px; }
+    .stack .piece img { width:16px; height:16px; }
+
+    /* SIDEBAR */
+    #sidebar {
+      background: rgba(10,0,0,.7); backdrop-filter: blur(16px);
+      border: 1px solid rgba(220,38,38,.3); border-radius: 16px;
+      padding: 18px; min-width: 220px; max-width: 240px;
+      color: #fff; display: flex; flex-direction: column; gap: 14px; flex-shrink: 0;
+      box-shadow: 0 0 30px rgba(220,38,38,.15);
+    }
+    .pcard { border-radius: 10px; padding: 9px 12px; border: 2px solid transparent; display: flex; align-items: center; gap: 10px; transition: all .3s; }
+    .pcard.active { border-color: var(--gold); box-shadow: 0 0 14px rgba(212,175,55,.5); }
+    .pcard.red    { background: rgba(220,38,38,.15); }
+    .pcard.blue   { background: rgba(59,130,246,.15); }
+    .pcard.green  { background: rgba(34,197,94,.15); }
+    .pcard.yellow { background: rgba(234,179,8,.15); }
+    .pcard.winner { border-color: var(--gold); box-shadow: 0 0 18px var(--gold); }
+    .pav { width:34px; height:34px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:17px; flex-shrink:0; }
+    .pav.red{background:#7f1d1d}.pav.blue{background:#1e3a5f}.pav.green{background:#14532d}.pav.yellow{background:#713f12}
+    .pname { font-weight:700; font-size:.9rem; color:#f9fafb; }
+    .psub  { font-size:.72rem; opacity:.65; color:#d1d5db; }
+    .pdots { display:flex; gap:3px; margin-top:3px; }
+    .pd { width:9px; height:9px; border-radius:50%; border:1.5px solid rgba(0,0,0,.5); }
+    .pd.barn { opacity:.2; }
+    .pd.on   { opacity:.7; }
+    .pd.fin  { opacity:1; box-shadow:0 0 5px var(--gold); }
+    .pd.red{background:#ef4444}.pd.blue{background:#3b82f6}.pd.green{background:#22c55e}.pd.yellow{background:#eab308}
+
+    /* DICE */
+    #dice-wrap { display:flex; flex-direction:column; align-items:center; gap:8px; }
+    #dice {
+      width:88px; height:88px;
+      border-radius:16px; border:2px solid rgba(220,38,38,.5);
+      box-shadow:0 0 20px rgba(220,38,38,.35), 0 5px 20px #000a;
+      display:block; cursor:pointer; transition:transform .1s;
+    }
+    #dice:hover { transform: scale(1.06); }
+    #dice:active { transform: scale(.93); }
+    #dice.rolling { animation: shake .5s ease-in-out; pointer-events:none; }
+    @keyframes shake {
+      0%{transform:rotate(0)scale(1)} 20%{transform:rotate(-15deg)scale(1.12)}
+      40%{transform:rotate(15deg)scale(1.12)} 60%{transform:rotate(-10deg)scale(1.05)}
+      80%{transform:rotate(10deg)scale(1.05)} 100%{transform:rotate(0)scale(1)}
+    }
+
+    #btn-roll {
+      width:100%; padding:9px; border:none; border-radius:10px;
+      background: linear-gradient(135deg, #dc2626, #7f1d1d);
+      color:#fff; font-weight:800; font-size:.9rem;
+      cursor:pointer; box-shadow:0 4px 14px rgba(220,38,38,.5); transition:all .2s;
+      letter-spacing:.5px; text-shadow:0 1px 3px #0005;
+    }
+    #btn-roll:hover:not(:disabled) { transform:translateY(-2px); box-shadow:0 6px 20px rgba(220,38,38,.7); background:linear-gradient(135deg,#ef4444,#991b1b); }
+    #btn-roll:disabled { opacity:.35; cursor:not-allowed; transform:none; }
+    #status {
+      background: linear-gradient(135deg, rgba(30,0,0,.7), rgba(0,0,0,.6));
+      border: 1px solid rgba(220,38,38,.3); border-radius: 12px; padding: 10px 14px;
+      display: flex; flex-direction: column; align-items: center; gap: 4px;
+    }
+    .st-top { display:flex; align-items:center; gap:8px; }
+    .st-top img { width:32px; height:32px; object-fit:contain; border-radius:50%; background:rgba(255,255,255,.08); padding:2px; }
+    .st-name { font-weight:800; font-size:.95rem; color:var(--gold); letter-spacing:.5px; }
+    .st-msg { font-size:.75rem; color:#fca5a5; opacity:.85; text-align:center; }
+    #logbox {
+      background:rgba(0,0,0,.45); border:1px solid rgba(255,255,255,.06); border-radius:9px; padding:6px 8px;
+      font-size:.72rem; max-height:160px; overflow-y:auto; color:#d1d5db; line-height:1.5;
+    }
+    #logbox::-webkit-scrollbar{width:3px}
+    #logbox::-webkit-scrollbar-thumb{background:rgba(220,38,38,.3);border-radius:2px}
+    .ll { display:flex; align-items:center; gap:6px; padding:3px 4px; border-bottom:1px solid rgba(255,255,255,.04); flex-wrap:nowrap; }
+    .ll img { flex-shrink:0; border-radius:50%; background:rgba(255,255,255,.08); padding:1px; }
+    .ll-txt { color:#d1d5db; font-size:.71rem; line-height:1.4; }
+    .lbl { font-size:.72rem; color:#fca5a5; font-weight:700; letter-spacing:.5px; display:flex; align-items:center; gap:5px; }
+    #btn-new { width:100%; padding:7px; border-radius:9px; font-size:.82rem; font-weight:600;
+               border:1px solid rgba(220,38,38,.35); background:rgba(220,38,38,.1); color:#fca5a5;
+               cursor:pointer; transition:background .2s; }
+    #btn-new:hover{background:rgba(220,38,38,.25);color:#fff}
+
+    /* SETUP */
+    #setup {
+      position:fixed; inset:0;
+      background: linear-gradient(rgba(0,0,0,.8), rgba(5,0,0,.9)),
+                  url('https://wallpapers.com/images/featured-full/dark-avengers-27iqznzroib1dxqg.jpg') center/cover;
+      display:flex; align-items:center; justify-content:center; flex-direction:column; gap:18px; color:#fff; z-index:100;
+    }
+    #setup h2 { font-size:2rem; font-weight:900; color:var(--gold); text-align:center;
+                text-shadow:0 0 24px rgba(220,38,38,.8), 0 2px 8px #000; letter-spacing:2px; }
+    #setup p  { color:#fca5a5; font-size:.9rem; text-align:center; max-width:340px; line-height:1.5; }
+    .choices { display:flex; gap:14px; }
+    .cbtn {
+      width:80px; height:80px; border-radius:16px; font-size:2rem; font-weight:900;
+      cursor:pointer; border:2px solid rgba(220,38,38,.4); background:rgba(220,38,38,.12);
+      color:#fff; transition:all .2s; display:flex; align-items:center; justify-content:center; flex-direction:column;
+    }
+    .cbtn span{font-size:.6rem;margin-top:2px;color:#fca5a5}
+    .cbtn:hover{background:rgba(220,38,38,.3);border-color:var(--gold);transform:scale(1.06);box-shadow:0 0 20px rgba(212,175,55,.4)}
+
+    /* WIN */
+    #win{display:none;position:fixed;inset:0;background:rgba(0,0,0,.82);z-index:200;align-items:center;justify-content:center;}
+    #win.show{display:flex}
+    .wbox{
+      background:linear-gradient(145deg,#0d0000,#1a0505);
+      border:2px solid rgba(212,175,55,.5);
+      border-radius:24px;padding:40px 56px;text-align:center;
+      box-shadow:0 0 60px rgba(220,38,38,.3), 0 24px 80px #000c;
+      animation:popin .5s cubic-bezier(.175,.885,.32,1.275);
+    }
+    @keyframes popin{from{transform:scale(.5);opacity:0}to{transform:scale(1);opacity:1}}
+    .wbox h2{font-size:2.3rem;font-weight:900;margin-bottom:6px;color:var(--gold);text-shadow:0 0 20px rgba(212,175,55,.5)}
+    .wbox p{color:#fca5a5;margin-bottom:22px}
+    .wbox button{padding:11px 34px;background:linear-gradient(135deg,#dc2626,#7f1d1d);color:#fff;border:none;border-radius:12px;font-size:1rem;font-weight:700;cursor:pointer;transition:all .2s;box-shadow:0 4px 14px rgba(220,38,38,.5)}
+    .wbox button:hover{background:linear-gradient(135deg,#ef4444,#991b1b);transform:translateY(-2px)}
+
+    @media(max-width:700px){
+      :root{--cs:33px}
+      h1{font-size:1.2rem}
+      #sidebar{min-width:0;max-width:190px;padding:12px;gap:10px}
+      .pname{font-size:.78rem}
+      #dice{width:50px;height:50px;padding:6px}
+      .dt{width:6px;height:6px}
+      .piece{width:22px;height:22px;font-size:7px;border-width:2px}
+    }
+  </style>
+</head>
+<body>
+
+<!-- Setup -->
+<div id="setup">
+  <h2>🎲 Xoài chơi cá ngựa</h2>
+  <p>Chọn số người chơi (tất cả sẽ tự tung xúc xắc)</p>
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;width:280px">
+    <div style="display:flex;align-items:center;gap:10px;background:rgba(239,68,68,.18);border:1px solid rgba(239,68,68,.4);border-radius:12px;padding:10px 14px">
+      <img src="https://img.icons8.com/?size=96&id=12268&format=png" style="width:40px;height:40px;object-fit:contain;flex-shrink:0">
+      <span style="font-weight:700;color:#fca5a5;font-size:.88rem">Iron Man</span>
+    </div>
+    <div style="display:flex;align-items:center;gap:10px;background:rgba(34,197,94,.18);border:1px solid rgba(34,197,94,.4);border-radius:12px;padding:10px 14px">
+      <img src="https://img.icons8.com/?size=96&id=38038&format=png" style="width:40px;height:40px;object-fit:contain;flex-shrink:0">
+      <span style="font-weight:700;color:#86efac;font-size:.88rem">Hulk</span>
+    </div>
+    <div style="display:flex;align-items:center;gap:10px;background:rgba(59,130,246,.18);border:1px solid rgba(59,130,246,.4);border-radius:12px;padding:10px 14px">
+      <img src="https://img.icons8.com/?size=96&id=11826&format=png" style="width:40px;height:40px;object-fit:contain;flex-shrink:0">
+      <span style="font-weight:700;color:#93c5fd;font-size:.88rem">Cap. America</span>
+    </div>
+    <div style="display:flex;align-items:center;gap:10px;background:rgba(234,179,8,.18);border:1px solid rgba(234,179,8,.4);border-radius:12px;padding:10px 14px">
+      <img src="https://img.icons8.com/?size=96&id=118482&format=png" style="width:40px;height:40px;object-fit:contain;flex-shrink:0">
+      <span style="font-weight:700;color:#fde047;font-size:.88rem">Thanos</span>
+    </div>
+  </div>
+  <div class="choices">
+    <button class="cbtn" onclick="startGame(2)">2<span>người</span></button>
+    <button class="cbtn" onclick="startGame(3)">3<span>người</span></button>
+    <button class="cbtn" onclick="startGame(4)">4<span>người</span></button>
+  </div>
+</div>
+
+<!-- Win -->
+<div id="win">
+  <div class="wbox">
+    <div id="win-e" style="font-size:3.5rem;margin-bottom:8px">&#127942;</div>
+    <h2 id="win-t">Chúc mừng!</h2>
+    <p id="win-s">Đã đưa hết 4 quân về đích trước!</p>
+    <button onclick="resetGame()">🔄 Chơi lại</button>
+  </div>
+</div>
+
+<h1>🎲 Xoài chơi cá ngựa</h1>
+
+<div id="main">
+  <div id="board-wrap"><div id="board"></div></div>
+  <div id="sidebar">
+    <div id="pcards"></div>
+    <div id="dice-wrap">
+      <canvas id="dice" width="88" height="88" title="Click hoặc nhấn Space để tung"></canvas>
+      <button id="btn-roll" onclick="humanRoll()">🎲 Tung xúc xắc</button>
+    </div>
+    <div id="status">Nhấn "Tung xúc xắc" để bắt đầu!</div>
+    <div class="lbl">📋 Nhật ký</div>
+    <div id="logbox"></div>
+    <button id="btn-new" onclick="resetGame()">🔄 Trò chơi mới</button>
+  </div>
+</div>
+
+<script>
+// =======================================================
+//  BOARD: 11x11 cross-shaped (+) grid
+//  Path goes around the CROSS PERIMETER (40 cells CW)
+//  Red(bottom)=0, Blue(left)=10, Green(top)=20, Yellow(right)=30
+// =======================================================
+
+const PATH = [
+  // Red's sector  bottom arm LEFT side going UP
+  {r:10,c:4},{r:9,c:4},{r:8,c:4},{r:7,c:4},        // 0-3
+  // Inner corner  left arm BOTTOM going LEFT
+  {r:6,c:4},{r:6,c:3},{r:6,c:2},{r:6,c:1},          // 4-7
+  // Left arm LEFT side going UP
+  {r:6,c:0},{r:5,c:0},                               // 8-9
+  // [BLUE start=10] Left arm TOP going RIGHT
+  {r:4,c:0},{r:4,c:1},{r:4,c:2},{r:4,c:3},          // 10-13
+  // Inner corner  top arm LEFT side going UP
+  {r:4,c:4},{r:3,c:4},{r:2,c:4},{r:1,c:4},          // 14-17
+  // Top arm CAP going RIGHT
+  {r:0,c:4},{r:0,c:5},                               // 18-19
+  // [GREEN start=20] Top arm RIGHT side going DOWN
+  {r:0,c:6},{r:1,c:6},{r:2,c:6},{r:3,c:6},          // 20-23
+  // Inner corner  right arm TOP going RIGHT
+  {r:4,c:6},{r:4,c:7},{r:4,c:8},{r:4,c:9},          // 24-27
+  // Right arm RIGHT side going DOWN
+  {r:4,c:10},{r:5,c:10},                             // 28-29
+  // [YELLOW start=30] Right arm BOTTOM going LEFT
+  {r:6,c:10},{r:6,c:9},{r:6,c:8},{r:6,c:7},         // 30-33
+  // Inner corner  bottom arm RIGHT side going DOWN
+  {r:6,c:6},{r:7,c:6},{r:8,c:6},{r:9,c:6},          // 34-37
+  // Bottom arm CAP going LEFT
+  {r:10,c:6},{r:10,c:5},                             // 38-39
+];
+
+const ENTRY = { red:0, blue:10, green:20, yellow:30 };
+
+// Home lanes  4 cells each, pos 40..43, going toward center (5,5)
+const HOME = {
+  red:    [{r:9,c:5},{r:8,c:5},{r:7,c:5},{r:6,c:5}],  // col5 UP toward center
+  blue:   [{r:5,c:1},{r:5,c:2},{r:5,c:3},{r:5,c:4}],  // row5 RIGHT toward center
+  green:  [{r:1,c:5},{r:2,c:5},{r:3,c:5},{r:4,c:5}],  // col5 DOWN toward center
+  yellow: [{r:5,c:9},{r:5,c:8},{r:5,c:7},{r:5,c:6}],  // row5 LEFT toward center
+};
+
+// Barn cells (2x2 in each corner quadrant)
+const BARN = {
+  red:    [[8,1],[8,2],[9,1],[9,2]],   // bottom-left quadrant
+  blue:   [[1,1],[1,2],[2,1],[2,2]],   // top-left quadrant
+  green:  [[1,8],[1,9],[2,8],[2,9]],   // top-right quadrant
+  yellow: [[8,8],[8,9],[9,8],[9,9]],   // bottom-right quadrant
+};
+
+const PNAMES  = {red:'Iron Man', green:'Hulk', blue:'Cap. America', yellow:'Thanos'};
+const PICON   = {
+  red:    'https://img.icons8.com/?size=96&id=12268&format=png',
+  green:  'https://img.icons8.com/?size=96&id=38038&format=png',
+  blue:   'https://img.icons8.com/?size=96&id=11826&format=png',
+  yellow: 'https://img.icons8.com/?size=96&id=118482&format=png'
+};
+const PSYMBOL = {red:'IM', green:'HK', blue:'CA', yellow:'TH'};
+function pIcon(c,s){s=s||18;return '<img src="'+PICON[c]+'" alt="'+PNAMES[c]+'" style="width:'+s+'px;height:'+s+'px;object-fit:contain;vertical-align:middle;">';}
+
+// =======================================================
+//  BUILD CELL-TYPE GRID (11x11)
+// =======================================================
+function buildGrid() {
+  const G = Array.from({length:11},()=>Array(11).fill('empty'));
+
+  // Cross shape: horizontal bar rows 4-6, vertical bar cols 4-6
+  for(let r=0;r<11;r++) for(let c=0;c<11;c++) {
+    if((r>=4&&r<=6)||(c>=4&&c<=6)) G[r][c]='path';
+  }
+
+  // Decorative quadrant tints (outside cross, inside quadrant region)
+  const quadTint = (r1,r2,c1,c2,cls) => {
+    for(let r=r1;r<=r2;r++) for(let c=c1;c<=c2;c++) if(G[r][c]==='empty') G[r][c]=cls;
+  };
+  quadTint(0,3,0,3,'quad-red');    // bottom-left themed (Red barn area)
+  quadTint(0,3,7,10,'quad-green'); // top-right themed (Green barn area)
+  quadTint(7,10,0,3,'quad-red');   // needs to be red area
+  quadTint(7,10,7,10,'quad-yellow');
+
+  // Actually assign correct quadrant colors
+  for(let r=0;r<=3;r++) for(let c=0;c<=3;c++) if(G[r][c]!=='path') G[r][c]='quad-blue';
+  for(let r=0;r<=3;r++) for(let c=7;c<=10;c++) if(G[r][c]!=='path') G[r][c]='quad-green';
+  for(let r=7;r<=10;r++) for(let c=0;c<=3;c++) if(G[r][c]!=='path') G[r][c]='quad-red';
+  for(let r=7;r<=10;r++) for(let c=7;c<=10;c++) if(G[r][c]!=='path') G[r][c]='quad-yellow';
+
+  // Home lanes
+  HOME.red.forEach(({r,c})=>G[r][c]='home-red');
+  HOME.blue.forEach(({r,c})=>G[r][c]='home-blue');
+  HOME.green.forEach(({r,c})=>G[r][c]='home-green');
+  HOME.yellow.forEach(({r,c})=>G[r][c]='home-yellow');
+
+  // Entry cells (colored start squares)
+  G[10][4]='entry-red';
+  G[4][0]='entry-blue';
+  G[0][6]='entry-green';
+  G[6][10]='entry-yellow';
+
+  // Center finish
+  G[5][5]='center';
+
+  // Barn circles
+  BARN.red.forEach(([r,c])=>G[r][c]='barn-red');
+  BARN.blue.forEach(([r,c])=>G[r][c]='barn-blue');
+  BARN.green.forEach(([r,c])=>G[r][c]='barn-green');
+  BARN.yellow.forEach(([r,c])=>G[r][c]='barn-yellow');
+
+  return G;
+}
+
+let GRID = buildGrid();
+
+// =======================================================
+//  GAME STATE
+// =======================================================
+let G = {players:[],pieces:{},turn:0,dice:0,phase:'roll',rollsInTurn:0,winners:[],isAI:{}};
+function cur(){ return G.players[G.turn]; }
+
+function initGame(n) {
+  // Player layout around board (clockwise order for turns)
+  if(n===2) G.players=['red','green'];          // opposite corners
+  else if(n===3) G.players=['red','yellow','green'];
+  else G.players=['red','yellow','green','blue']; // CW: bottom->right->top->left
+  G.pieces={};
+  G.players.forEach(c=>{ G.pieces[c]=[0,1,2,3].map(()=>({pos:-1,inBarn:true,finished:false,visitedTurnoff:false})); });
+  G.turn=0; G.dice=0; G.phase='roll'; G.rollsInTurn=0; G.winners=[];
+  G.isAI={}; G.players.forEach(c=>G.isAI[c]=false); // all human
+}
+
+// =======================================================
+//  MOVEMENT
+// =======================================================
+function traveled(color,absPos){ return (absPos-ENTRY[color]+40)%40; }
+
+// ALL 4 entry cells are always transparent to any piece of a different color,
+// regardless of whether that color is actually playing.
+const ALL_ENTRIES = Object.values(ENTRY); // [0, 10, 20, 30]
+// Home turn-off cells: the cell just before each player's home lane (rel=39 from each player's entry)
+// Absolute positions: red=39, blue=9, green=19, yellow=29
+const TURNOFFS = Object.keys(ENTRY).map(c => (ENTRY[c]+39)%40);
+function isEnemyEntry(color, absPos) {
+  return ALL_ENTRIES.some(e => e !== ENTRY[color] && e === absPos);
+}
+
+// Check if path from rel0+1 to relEnd (inclusive) is clear of OPPONENT pieces
+// (own pieces and enemy entry cells are ignored)
+function pathClearTo(color, i, rel0, relEnd) {
+  for(let r=rel0+1; r<=relEnd; r++) {
+    const abs=(ENTRY[color]+r)%40;
+    if(isEnemyEntry(color,abs)) continue; // transparent
+    // only OPPONENT pieces block the sprint path
+    const blocked=G.players.some(oc=>oc!==color &&
+      G.pieces[oc].some(op=>!op.inBarn&&!op.finished&&op.pos<40&&op.pos===abs)
+    );
+    if(blocked) return false;
+  }
+  return true;
+}
+
+function computeTarget(color,i) {
+  const p=G.pieces[color][i], d=G.dice;
+  if(p.pos>=40) {
+    // piece is in home lane — can still move deeper if space allows
+    const np=p.pos+d; if(np>43) return null;
+    const blk=G.pieces[color].some((q,j)=>j!==i&&q.pos===np); return blk?null:{type:'home',np};
+  }
+  if(p.inBarn) {
+    if(d!==6) return null;
+    // cannot bring out if own entry cell is already occupied by own piece
+    const entryOccupied=G.pieces[color].some((q,j)=>j!==i&&!q.inBarn&&q.pos<40&&q.pos===ENTRY[color]);
+    return entryOccupied?null:{type:'out'};
+  }
+  const rel0=traveled(color,p.pos);
+
+  // Rule for rolling 1:
+  // - NOT standing on any turn-off cell
+  // - No opponent blocking path to nearest turn-off ahead
+  // → sprint straight to that nearest turn-off
+  // Otherwise → normal 1-step move
+  if(d===1 && !TURNOFFS.includes(p.pos)) {
+    const candidates = TURNOFFS
+      .map(abs => (abs - ENTRY[color] + 40) % 40)
+      .filter(tRel => tRel > rel0);
+    if(candidates.length > 0) {
+      const nearestRel = Math.min(...candidates);
+      if(pathClearTo(color,i,rel0,nearestRel)) {
+        const na=(ENTRY[color]+nearestRel)%40;
+        return {type:'path',na,sprint:true};
+      }
+    }
+  }
+  // path blocked, on a turn-off, or d!==1 → normal move
+
+  // Normal: walk d real steps, enemy entry cells transparent (no step cost)
+  let rel=rel0, steps=d, guard=80;
+  while(steps>0 && guard-->0) {
+    const nextRel=rel+1;
+    if(nextRel>=40) {
+      // Enter home lane: only allowed if piece has already visited own turn-off cell
+      if(!p.visitedTurnoff) return null;
+      const hp=40+(steps-1); if(hp>43) return null;
+      const blk=G.pieces[color].some((q,j)=>j!==i&&q.pos===hp);
+      return blk?null:{type:'home',np:hp};
+    }
+    const nextAbs=(ENTRY[color]+nextRel)%40;
+    if(isEnemyEntry(color,nextAbs)){
+      rel=nextRel; // pass through, no step consumed
+      continue;
+    }
+    // Cannot pass THROUGH an opponent piece (can only land ON them)
+    if(steps>1) {
+      const opBlocking=G.players.some(oc=>oc!==color&&G.pieces[oc].some(
+        op=>!op.inBarn&&!op.finished&&op.pos<40&&op.pos===nextAbs
+      ));
+      if(opBlocking) return null;
+    }
+    rel=nextRel; steps--;
+  }
+  // Landed on main path
+  const na=(ENTRY[color]+rel)%40;
+  const blk=G.pieces[color].some((q,j)=>j!==i&&!q.inBarn&&!q.finished&&q.pos<40&&q.pos===na);
+  return blk?null:{type:'path',na};
+}
+
+function movable(color){ return [0,1,2,3].filter(i=>computeTarget(color,i)!==null); }
+
+function doMove(color,i) {
+  const p=G.pieces[color][i], t=computeTarget(color,i);
+  if(!t) return;
+  if(t.type==='out') {
+    p.inBarn=false; p.pos=ENTRY[color];
+    addLog(pIcon(color)+' '+PNAMES[color]+' đưa quân '+(i+1)+' ra ô xuất phát!');
+    kickAt(color,ENTRY[color]);
+  } else if(t.type==='path') {
+    p.pos=t.na;
+    // mark piece as having visited own turn-off cell
+    if(t.na===(ENTRY[color]+39)%40) p.visitedTurnoff=true;
+    if(t.sprint) addLog(pIcon(color)+' quân '+(i+1)+' chạy thẳng đến ô rẽ vào chuồng! 🐇');
+    else addLog(pIcon(color)+' quân '+(i+1)+' → ô '+t.na);
+    kickAt(color,t.na);
+  } else {
+    p.pos=t.np;
+    addLog(pIcon(color)+' quân '+(i+1)+' vào chuồng vị trí '+(t.np-39)+'/4 🏠');
+    checkWin(color);
+  }
+}
+
+function kickAt(color,absPos) {
+  for(const oc of G.players) {
+    if(oc===color) continue;
+    for(let j=0;j<4;j++) {
+      const op=G.pieces[oc][j];
+      if(!op.inBarn&&op.pos>=0&&op.pos<40&&op.pos===absPos&&op.pos!==ENTRY[oc]) {
+        op.inBarn=true; op.pos=-1;
+        addLog('⚔️ '+pIcon(color)+' đá '+pIcon(oc)+' quân '+(j+1)+' về chuồng!');
+      }
+    }
+  }
+}
+
+function checkWin(color) {
+  if(G.pieces[color].every(p=>p.pos>=40)&&!G.winners.includes(color)) {
+    G.winners.push(color);
+    if(G.winners.length===1) showWin(color);
+  }
+}
+
+// =======================================================
+//  TURN FLOW
+// =======================================================
+function nextTurn(extra) {
+  if(!extra) {
+    let nx=(G.turn+1)%G.players.length;
+    let g=G.players.length;
+    while(G.winners.includes(G.players[nx])&&g-->0) nx=(nx+1)%G.players.length;
+    G.turn=nx; G.rollsInTurn=0;
+  }
+  G.phase='roll';  // keep G.dice as-is so dice display stays on previous roll
+  render(); setSt();
+  setBR(true);
+}
+
+function roll() {
+  if(G.phase!=='roll') return;
+  if(G.winners.includes(cur())) { nextTurn(); return; }
+  setBR(false);
+  const de=document.getElementById('dice'); de.classList.add('rolling');
+  let n=0;
+  const iv=setInterval(()=>{
+    setDV(Math.ceil(Math.random()*6));
+    if(++n>=8) {
+      clearInterval(iv); const v=Math.ceil(Math.random()*6);
+      G.dice=v; setDV(v); de.classList.remove('rolling'); afterRoll(v);
+    }
+  },60);
+}
+
+function humanRoll() { if(G.phase==='roll') roll(); }
+
+function afterRoll(v) {
+  G.rollsInTurn++;
+  const cc=cur();
+  addLog(pIcon(cc)+' '+PNAMES[cc]+' tung được '+v+(v===6?' ✨':''));
+  const mv=movable(cc);
+  if(mv.length===0) {
+    if(v===6) {
+      addLog(pIcon(cc)+' tung 6 nhưng không có nước đi — xúc lại! 🎲');
+      setSt('Tung 6 không có nước đi — Xúc lại!');
+      G.rollsInTurn=0; G.phase='roll';
+      setTimeout(()=>setBR(true),900); return;
+    }
+    addLog(pIcon(cc)+' mất lượt (không có nước đi)');
+    setSt('Không có nước đi — mất lượt');
+    setTimeout(()=>nextTurn(),1200); return;
+  }
+  G.phase='move';
+  if(mv.length===1) { render(); setTimeout(()=>{ doMove(cc,mv[0]); afterMove(v); },350); return; }
+  render();
+  setSt('Chọn quân di chuyển '+v+' bước');
+}
+
+function afterMove(rv) {
+  G.phase='roll'; const cc=cur();
+  if(G.winners.includes(cc)) { render(); setTimeout(nextTurn,600); return; }
+  render();
+  if(rv===6) { addLog(pIcon(cc)+' tung 6 — được tung thêm! 🎉'); setSt('Tung 6 — được tung thêm!'); G.rollsInTurn=0; setTimeout(()=>setBR(true),700); return; }
+  setTimeout(nextTurn,600);
+}
+
+function pickPiece(i) {
+  if(G.phase!=='move') return;
+  const cc=cur();
+  if(!movable(cc).includes(i)) return;
+  const rv=G.dice; doMove(cc,i); render(); setTimeout(()=>afterMove(rv),300);
+}
+
+
+
+// =======================================================
+//  RENDER
+// =======================================================
+function render() {
+  renderBoard(); renderSide();
+  if(G.dice) setDV(G.dice); // keep previous roll visible; only skip if dice never rolled yet
+  setBR(G.phase==='roll'&&!G.winners.includes(cur()));
+}
+
+function renderBoard() {
+  const brd=document.getElementById('board'); brd.innerHTML='';
+  const cc=cur(), mv=(G.phase==='move')?movable(cc):[];
+  const cells=[]; // build all 121 cells
+  for(let r=0;r<11;r++) for(let c=0;c<11;c++) {
+    const el=document.createElement('div');
+    el.className='cell '+GRID[r][c];
+    cells.push(el); brd.appendChild(el);
+  }
+  const at=(r,c)=>cells[r*11+c];
+
+  // Barn pieces
+  for(const color of G.players) {
+    const bc=BARN[color]; let bi=0;
+    for(let i=0;i<4;i++) {
+      const p=G.pieces[color][i]; if(!p.inBarn) continue;
+      const [br,bc2]=bc[bi++]||[0,0]; const el=at(br,bc2);
+      el.appendChild(mkP(color,i,mv,cc));
+      if(G.phase==='move'&&color===cc&&mv.includes(i)) el.classList.add('selectable');
+    }
+  }
+
+  // Path pieces  group by coordinate
+  const occ={};
+  G.players.forEach(color=>{ for(let i=0;i<4;i++) {
+    const p=G.pieces[color][i]; if(p.inBarn||p.finished||p.pos>=40) continue;
+    const {r,c}=PATH[p.pos], k=r+','+c;
+    if(!occ[k]) occ[k]=[]; occ[k].push({color,i});
+  }});
+  for(const [k,arr] of Object.entries(occ)) {
+    const [r,c]=k.split(',').map(Number), el=at(r,c);
+    if(arr.length===1) {
+      const {color,i}=arr[0]; el.appendChild(mkP(color,i,mv,cc));
+      if(G.phase==='move'&&color===cc&&mv.includes(i)) el.classList.add('selectable');
+    } else {
+      const w=document.createElement('div'); w.className='stack';
+      arr.forEach(({color,i})=>w.appendChild(mkP(color,i,mv,cc))); el.appendChild(w);
+      if(G.phase==='move'&&arr.some(a=>a.color===cc&&mv.includes(a.i))) el.classList.add('selectable');
+    }
+  }
+
+  // Home lane pieces
+  G.players.forEach(color=>{ for(let i=0;i<4;i++) {
+    const p=G.pieces[color][i]; if(p.finished||p.pos<40) continue;
+    const li=p.pos-40; const {r,c}=HOME[color][li]; const el=at(r,c);
+    el.appendChild(mkP(color,i,mv,cc));
+    if(G.phase==='move'&&color===cc&&mv.includes(i)) el.classList.add('selectable');
+  }});
+}
+
+function mkP(color,i,mv,cc) {
+  const el=document.createElement('div'); el.className='piece '+color;
+  if(PICON[color]) {
+    const img=document.createElement('img');
+    img.src=PICON[color]; img.alt=PNAMES[color];
+    img.style.cssText='width:28px;height:28px;object-fit:contain;pointer-events:none;';
+    el.appendChild(img);
+  }
+  if(G.phase==='move'&&color===cc&&mv.includes(i)) {
+    el.classList.add('clickable');
+    el.onclick=e=>{ e.stopPropagation(); pickPiece(i); };
+  }
+  return el;
+}
+
+function renderSide() {
+  const c=document.getElementById('pcards'); c.innerHTML='';
+  const cc=cur();
+  for(const color of G.players) {
+    const ps=G.pieces[color];
+    const fin=ps.filter(p=>p.pos>=40).length, barn=ps.filter(p=>p.inBarn).length;
+    const dots=ps.map(p=>'<div class="pd '+color+' '+(p.pos>=40?'fin':p.inBarn?'barn':'on')+'"></div>').join('');
+    c.innerHTML+='<div class="pcard '+color+(color===cc?' active':'')+(G.winners.includes(color)?' winner':'')+'">'+
+      '<div class="pav '+color+'">'+pIcon(color,22)+'</div>'+
+      '<div style="flex:1"><div class="pname">'+pIcon(color,16)+' '+PNAMES[color]+'</div>'+
+      '<div class="psub">'+barn+' chuồng · '+fin+' đích</div>'+
+      '<div class="pdots">'+dots+'</div></div></div>';
+  }
+}
+
+const DICE_DOTS = {
+  1: [[44,44]],
+  2: [[24,21],[64,67]],
+  3: [[64,21],[44,44],[24,67]],
+  4: [[24,21],[64,21],[24,67],[64,67]],
+  5: [[24,21],[64,21],[44,44],[24,67],[64,67]],
+  6: [[24,19],[24,44],[24,69],[64,19],[64,44],[64,69]]
+};
+function drawDice(v) {
+  const c=document.getElementById('dice'); if(!c) return;
+  const ctx=c.getContext('2d'), s=88;
+  ctx.clearRect(0,0,s,s);
+  ctx.fillStyle='#ffffff'; ctx.fillRect(0,0,s,s);
+  const pts=DICE_DOTS[v||1]||DICE_DOTS[1];
+  pts.forEach(([x,y])=>{
+    ctx.beginPath();
+    ctx.fillStyle=(v===1)?'#e11d48':'#1f2937';
+    ctx.arc(x,y,8,0,Math.PI*2); ctx.fill();
+  });
+}
+function setDV(v){ drawDice(v||1); }
+function setBR(en){ document.getElementById('btn-roll').disabled=!en; }
+function setSt(m) {
+  const el=document.getElementById('status');
+  if(m!==undefined){
+    el.innerHTML='<div class="st-msg" style="color:var(--gold);font-size:.8rem;font-weight:700;text-align:center;">'+m+'</div>';
+    return;
+  }
+  const cc=cur();
+  const isRoll=G.phase==='roll';
+  const msg=isRoll?'Hãy tung xúc xắc!':('Chọn quân di chuyển <b>'+G.dice+'</b> bước');
+  el.innerHTML=
+    '<div class="st-top">'+
+      '<img src="'+PICON[cc]+'" alt="'+PNAMES[cc]+'">'+
+      '<span class="st-name">'+PNAMES[cc]+'</span>'+
+    '</div>'+
+    '<div class="st-msg">'+msg+'</div>';
+}
+function addLog(m) {
+  const b=document.getElementById('logbox');
+  const el=document.createElement('div'); el.className='ll';
+  // Separate leading img (icon) from the rest of the message text
+  const tmp=document.createElement('div'); tmp.innerHTML=m;
+  const imgs=tmp.querySelectorAll('img');
+  const txt=tmp.innerHTML.replace(/<img[^>]*>/g,'').trim();
+  let inner='';
+  imgs.forEach(img=>{ img.style.cssText='width:18px;height:18px;object-fit:contain;vertical-align:middle;flex-shrink:0;border-radius:50%;background:rgba(255,255,255,.08);padding:1px;'; inner+=img.outerHTML; });
+  inner+='<span class="ll-txt">'+txt+'</span>';
+  el.innerHTML=inner;
+  b.insertBefore(el,b.firstChild);
+  while(b.children.length>35) b.removeChild(b.lastChild);
+}
+
+// =======================================================
+//  WIN / SETUP
+// =======================================================
+function showWin(color) {
+  document.getElementById('win-e').innerHTML=pIcon(color,48)+' &#127942;';
+  document.getElementById('win-t').innerHTML=PNAMES[color]+' thắng!';
+  document.getElementById('win-s').innerHTML=pIcon(color)+' đã đưa hết 4 quân về đích!';
+  document.getElementById('win').classList.add('show');
+}
+function startGame(n) {
+  document.getElementById('setup').style.display='none';
+  GRID=buildGrid(); initGame(n); render(); setSt();
+  addLog('🎮 Trò chơi bắt đầu! Chúc vui vẻ! 🎲');
+  setBR(true);
+}
+function resetGame() {
+  document.getElementById('win').classList.remove('show');
+  document.getElementById('setup').style.display='flex';
+}
+
+document.addEventListener('keydown',e=>{
+  if(e.code==='Space'&&G.phase==='roll'){e.preventDefault();roll();}
+});
+document.getElementById('dice').addEventListener('click',()=>{ if(G.phase==='roll') roll(); });
+drawDice(1);
+</script>
+</body>
+</html>
