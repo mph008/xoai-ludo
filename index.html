@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="vi">
 <head>
   <meta charset="UTF-8" />
@@ -110,6 +110,16 @@
     .piece.clickable { cursor: pointer; animation: bounce .55s infinite alternate; }
     .piece.selected  { transform: scale(1.25) translateY(-5px); box-shadow: 0 6px 16px #000a, 0 0 14px 5px var(--gold); }
     @keyframes bounce { from{transform:translateY(0)} to{transform:translateY(-6px)} }
+
+    /* Kick flash on a board cell */
+    @keyframes kickflash {
+      0%  { background: rgba(255,60,60,.85); box-shadow: 0 0 0 4px #ff3c3c, 0 0 30px 10px #ff000099; transform: scale(1.25); }
+      40% { background: rgba(255,180,0,.6);  box-shadow: 0 0 0 3px #fbbf24, 0 0 20px 8px #fbbf2477;  transform: scale(1.1); }
+      100%{ background: ''; box-shadow: ''; transform: scale(1); }
+    }
+    .cell.kick-flash { animation: kickflash .55s ease-out forwards; z-index: 10; }
+
+
     .stack { display:flex; gap:2px; flex-wrap:wrap; align-items:center; justify-content:center; width:100%; height:100%; padding:2px; }
     .stack .piece { width:22px; height:22px; font-size:13px; line-height:1; border-width:1.5px; }
     .stack .piece img { width:16px; height:16px; }
@@ -441,12 +451,14 @@ function isEnemyEntry(color, absPos) {
 }
 
 // Check if path from rel0+1 to relEnd (inclusive) is clear of OPPONENT pieces
-// (own pieces and enemy entry cells are ignored)
+// EXCEPT at the final destination (relEnd) - you CAN land on an opponent to kick them
+// (own pieces and enemy entry cells are ignored for passing through)
 function pathClearTo(color, i, rel0, relEnd) {
   for(let r=rel0+1; r<=relEnd; r++) {
     const abs=(ENTRY[color]+r)%40;
     if(isEnemyEntry(color,abs)) continue; // transparent
-    // only OPPONENT pieces block the sprint path
+    // only OPPONENT pieces block the sprint path — but NOT at the landing cell (can kick)
+    if(r===relEnd) continue; // landing cell: opponent can be kicked, not a blocker
     const blocked=G.players.some(oc=>oc!==color &&
       G.pieces[oc].some(op=>!op.inBarn&&!op.finished&&op.pos<40&&op.pos===abs)
     );
@@ -522,28 +534,141 @@ function computeTarget(color,i) {
 
 function movable(color){ return [0,1,2,3].filter(i=>computeTarget(color,i)!==null); }
 
-function doMove(color,i) {
-  const p=G.pieces[color][i], t=computeTarget(color,i);
-  if(!t) return;
-  if(t.type==='out') {
-    p.inBarn=false; p.pos=ENTRY[color];
-    addLog(pIcon(color)+' '+PNAMES[color]+' đưa quân '+(i+1)+' ra ô xuất phát!');
-    kickAt(color,ENTRY[color]);
-  } else if(t.type==='path') {
-    p.pos=t.na;
-    // mark piece as having visited own turn-off cell
-    if(t.na===(ENTRY[color]+39)%40) p.visitedTurnoff=true;
-    if(t.sprint) addLog(pIcon(color)+' quân '+(i+1)+' chạy thẳng đến ô rẽ vào chuồng! 🐇');
-    else addLog(pIcon(color)+' quân '+(i+1)+' → ô '+t.na);
-    kickAt(color,t.na);
+// -------------------------------------------------------
+//  ANIMATED MOVEMENT
+// -------------------------------------------------------
+const STEP_DELAY = 220; // ms per step
+const KICK_DELAY = 480; // ms for kick animation
+
+// Build list of absolute path positions the piece will visit
+function buildSteps(color, i) {
+  const p = G.pieces[color][i], d = G.dice;
+  const t = computeTarget(color, i);
+  if(!t) return null;
+
+  if(t.type === 'out') return { type:'out', steps:[] };
+
+  if(t.type === 'home') {
+    // Steps through home lane (pos 40..np)
+    const steps = [];
+    for(let hp = (p.pos < 40 ? 40 : p.pos+1); hp <= t.np; hp++) steps.push({home:true, hp});
+    return { type:'home', steps, np: t.np };
+  }
+
+  // type 'path' or sprint
+  const steps = [];
+  if(t.sprint) {
+    // Sprint: jump directly to destination (no step-by-step)
+    return { type:'path', steps: [{abs: t.na}], na: t.na, sprint: true };
+  }
+
+  // Normal move: walk step by step
+  let rel = traveled(color, p.pos), remaining = d, guard = 80;
+  while(remaining > 0 && guard-- > 0) {
+    const nextRel = rel + 1;
+    if(nextRel >= 40) {
+      // Entering home lane
+      const startHp = 40 + (d - remaining);
+      for(let hp = startHp; hp <= t.np; hp++) steps.push({home:true, hp});
+      return { type:'path+home', steps, na: t.na, np: t.np };
+    }
+    const nextAbs = (ENTRY[color] + nextRel) % 40;
+    if(isEnemyEntry(color, nextAbs)) { rel = nextRel; continue; } // transparent
+    steps.push({abs: nextAbs});
+    rel = nextRel; remaining--;
+  }
+  return { type:'path', steps, na: t.na };
+}
+
+function animateMove(color, pieceIdx, onDone) {
+  const p = G.pieces[color][pieceIdx];
+  const plan = buildSteps(color, pieceIdx);
+  if(!plan) { onDone(); return; }
+
+  if(plan.type === 'out') {
+    p.inBarn = false; p.pos = ENTRY[color];
+    addLog(pIcon(color)+' '+PNAMES[color]+' đưa quân '+(pieceIdx+1)+' ra ô xuất phát!');
+    render();
+    setTimeout(()=>{ kickAtAnimated(color, ENTRY[color], onDone); }, STEP_DELAY);
+    return;
+  }
+
+  const steps = plan.steps;
+  let stepIdx = 0;
+
+  function doStep() {
+    if(stepIdx >= steps.length) {
+      // Finalize position
+      if(plan.np !== undefined) {
+        p.pos = plan.np;
+        if(p.pos < 40 && (p.pos === (ENTRY[color]+39)%40)) p.visitedTurnoff = true;
+      }
+      render();
+      // Show step badge at destination briefly
+      // Then check kick / win
+      const isHome = (plan.np >= 40) || steps.some(s=>s.home);
+      if(isHome) {
+        addLog(pIcon(color)+' quân '+(pieceIdx+1)+' vào chuồng vị trí '+(p.pos-39)+'/4 🏠');
+        checkWin(color);
+        onDone();
+      } else {
+        if(plan.sprint) addLog(pIcon(color)+' quân '+(pieceIdx+1)+' sprint đến ô rẽ! 🐇');
+        else addLog(pIcon(color)+' quân '+(pieceIdx+1)+' → ô '+p.pos);
+        setTimeout(()=>{ kickAtAnimated(color, p.pos, onDone); }, 80);
+      }
+      return;
+    }
+
+    const s = steps[stepIdx++];
+    if(s.home) {
+      p.pos = s.hp;
+    } else {
+      p.pos = s.abs;
+      if(p.pos === (ENTRY[color]+39)%40) p.visitedTurnoff = true;
+    }
+    render();
+    setTimeout(doStep, STEP_DELAY);
+  }
+
+  doStep();
+}
+
+function kickAtAnimated(color, absPos, onDone) {
+  let kicked = false;
+  for(const oc of G.players) {
+    if(oc === color) continue;
+    for(let j = 0; j < 4; j++) {
+      const op = G.pieces[oc][j];
+      if(!op.inBarn && op.pos >= 0 && op.pos < 40 && op.pos === absPos && op.pos !== ENTRY[oc]) {
+        // Flash the cell before kicking
+        const brd = document.getElementById('board');
+        const cells = brd.querySelectorAll('.cell');
+        const {r, c} = PATH[absPos];
+        const cellEl = cells[r*11+c];
+        if(cellEl) {
+          cellEl.classList.add('kick-flash');
+          setTimeout(()=>cellEl.classList.remove('kick-flash'), 600);
+        }
+        op.inBarn = true; op.pos = -1; op.visitedTurnoff = false;
+        addLog('⚔️ '+pIcon(color)+' đá '+pIcon(oc)+' quân '+(j+1)+' về chuồng!');
+        kicked = true;
+      }
+    }
+  }
+  if(kicked) {
+    setTimeout(()=>{ render(); onDone(); }, KICK_DELAY);
   } else {
-    p.pos=t.np;
-    addLog(pIcon(color)+' quân '+(i+1)+' vào chuồng vị trí '+(t.np-39)+'/4 🏠');
-    checkWin(color);
+    onDone();
   }
 }
 
+function doMove(color, i) {
+  // Legacy sync version - not used for animation flow, kept for compatibility
+  animateMove(color, i, ()=>{});
+}
+
 function kickAt(color,absPos) {
+  // Kept for compatibility — actual kicking now handled by kickAtAnimated
   for(const oc of G.players) {
     if(oc===color) continue;
     for(let j=0;j<4;j++) {
@@ -612,7 +737,13 @@ function afterRoll(v) {
     setTimeout(()=>nextTurn(),1200); return;
   }
   G.phase='move';
-  if(mv.length===1) { render(); setTimeout(()=>{ doMove(cc,mv[0]); afterMove(v); },350); return; }
+  if(mv.length===1) {
+    render();
+    setTimeout(()=>{
+      animateMove(cc, mv[0], ()=>afterMove(v));
+    }, 350);
+    return;
+  }
   render();
   setSt('Chọn quân di chuyển '+v+' bước');
 }
@@ -629,7 +760,12 @@ function pickPiece(i) {
   if(G.phase!=='move') return;
   const cc=cur();
   if(!movable(cc).includes(i)) return;
-  const rv=G.dice; doMove(cc,i); render(); setTimeout(()=>afterMove(rv),300);
+  const rv=G.dice;
+  G.phase='anim'; // prevent double-click during animation
+  render();
+  setTimeout(()=>{
+    animateMove(cc, i, ()=>afterMove(rv));
+  }, 100);
 }
 
 
@@ -639,7 +775,7 @@ function pickPiece(i) {
 // =======================================================
 function render() {
   renderBoard(); renderSide();
-  if(G.dice) setDV(G.dice); // keep previous roll visible; only skip if dice never rolled yet
+  if(G.dice) setDV(G.dice);
   setBR(G.phase==='roll'&&!G.winners.includes(cur()));
 }
 
