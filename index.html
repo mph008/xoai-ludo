@@ -218,6 +218,21 @@
     }
     .cbtn span{font-size:.6rem;margin-top:2px;color:#fca5a5}
     .cbtn:hover{background:rgba(220,38,38,.3);border-color:var(--gold);transform:scale(1.06);box-shadow:0 0 20px rgba(212,175,55,.4)}
+    /* Dice mode toggle */
+    .dice-mode-row{display:flex;gap:10px;align-items:center;justify-content:center}
+    .dmbtn{display:flex;align-items:center;gap:7px;padding:9px 18px;border-radius:12px;border:2px solid rgba(255,255,255,.15);background:rgba(255,255,255,.06);color:#fff;font-size:.82rem;font-weight:700;cursor:pointer;transition:all .2s}
+    .dmbtn.active{border-color:var(--gold);background:rgba(212,175,55,.18);color:var(--gold);box-shadow:0 0 14px rgba(212,175,55,.35)}
+    .dmbtn:hover:not(.active){background:rgba(255,255,255,.12);border-color:rgba(255,255,255,.3)}
+    /* Second dice */
+    #dice2{width:88px;height:88px;border-radius:16px;border:2px solid rgba(220,38,38,.5);box-shadow:0 0 20px rgba(220,38,38,.35),0 5px 20px #000a;display:none;cursor:default;transition:all .2s}
+    #dice2.active-die{border-color:var(--gold);box-shadow:0 0 18px rgba(212,175,55,.7)}
+    #dice.active-die{border-color:var(--gold);box-shadow:0 0 18px rgba(212,175,55,.7)}
+    #dice2.selectable-die,#dice.selectable-die{border-color:var(--gold);cursor:pointer;animation:glow-dice .7s infinite alternate}
+    @keyframes glow-dice{from{box-shadow:0 0 6px rgba(212,175,55,.35),0 5px 20px #000a}to{box-shadow:0 0 22px rgba(212,175,55,.85),0 5px 20px #000a}}
+    #dice2.used-die,#dice.used-die{opacity:.35;filter:grayscale(.8);cursor:default}
+    #dice2.reroll-die,#dice.reroll-die{border-color:#f97316;box-shadow:0 0 22px rgba(249,115,22,.85),0 5px 20px #000a;animation:glow-reroll .6s infinite alternate;cursor:pointer}
+    @keyframes glow-reroll{from{box-shadow:0 0 8px rgba(249,115,22,.5),0 5px 20px #000a}to{box-shadow:0 0 28px rgba(249,115,22,1),0 5px 20px #000a}}
+    .dice-duo{display:flex;gap:10px;align-items:center;justify-content:center}
     /* Setup step 2 */
     #setup-step2{display:none;flex-direction:column;align-items:center;gap:16px}
     #setup-players{display:flex;flex-direction:column;gap:10px}
@@ -284,6 +299,13 @@
         <span style="font-weight:700;color:#fde047;font-size:.88rem">Thanos</span>
       </div>
     </div>
+    <div style="margin-top:4px">
+      <p style="margin-bottom:8px">Chế độ xúc xắc</p>
+      <div class="dice-mode-row">
+        <button class="dmbtn active" id="dm1" onclick="selectDiceMode(1)">🎲 1 xúc xắc</button>
+        <button class="dmbtn" id="dm2" onclick="selectDiceMode(2)">🎲🎲 2 xúc xắc</button>
+      </div>
+    </div>
     <div class="choices">
       <button class="cbtn" onclick="setupChooseCount(2)">2<span>người</span></button>
       <button class="cbtn" onclick="setupChooseCount(3)">3<span>người</span></button>
@@ -317,7 +339,10 @@
   <div id="sidebar">
     <div id="pcards"></div>
     <div id="dice-wrap">
-      <canvas id="dice" width="88" height="88" title="Click hoặc nhấn Space để tung"></canvas>
+      <div class="dice-duo">
+        <canvas id="dice" width="88" height="88" title="Click hoặc nhấn Space để tung"></canvas>
+        <canvas id="dice2" width="88" height="88"></canvas>
+      </div>
       <button id="btn-roll" onclick="humanRoll()">🎲 Tung xúc xắc</button>
     </div>
     <div id="status">Nhấn "Tung xúc xắc" để bắt đầu!</div>
@@ -444,7 +469,7 @@ let GRID = buildGrid();
 // =======================================================
 //  GAME STATE
 // =======================================================
-let G = {players:[],pieces:{},turn:0,dice:0,phase:'roll',rollsInTurn:0,winners:[],isAI:{}};
+let G = {players:[],pieces:{},turn:0,dice:0,dice2:0,diceMode:1,dice2Roll:[],dice2Avail:[],activeDie2:-1,extraOneDie:false,extraDieSlot:-1,phase:'roll',rollsInTurn:0,winners:[],isAI:{}};
 function cur(){ return G.players[G.turn]; }
 
 function initGame(n) {
@@ -454,7 +479,8 @@ function initGame(n) {
   else G.players=['red','yellow','green','blue']; // CW: bottom->right->top->left
   G.pieces={};
   G.players.forEach(c=>{ G.pieces[c]=[0,1,2,3].map(()=>({pos:-1,inBarn:true,finished:false,visitedTurnoff:false})); });
-  G.turn=0; G.dice=0; G.phase='roll'; G.rollsInTurn=0; G.winners=[];
+  G.turn=0; G.dice=0; G.dice2=0; G.dice2Roll=[]; G.dice2Avail=[]; G.activeDie2=-1; G.extraOneDie=false; G.extraDieSlot=-1;
+  G.phase='roll'; G.rollsInTurn=0; G.winners=[];
   G.isAI={}; G.players.forEach(c=>G.isAI[c]=false); // all human
 }
 
@@ -473,18 +499,25 @@ function isEnemyEntry(color, absPos) {
   return ALL_ENTRIES.some(e => e !== ENTRY[color] && e === absPos);
 }
 
-// Check if path from rel0+1 to relEnd (inclusive) is clear of OPPONENT pieces
-// EXCEPT at the final destination (relEnd) - you CAN land on an opponent to kick them
-// (own pieces and enemy entry cells are ignored for passing through)
+// Check if path from rel0+1 to relEnd (inclusive) is clear for a sprint move.
+// Intermediate cells: blocked by ANY piece (own or opponent) except self.
+// Landing cell (relEnd): blocked only by own pieces (can kick opponents).
 function pathClearTo(color, i, rel0, relEnd) {
   for(let r=rel0+1; r<=relEnd; r++) {
     const abs=(ENTRY[color]+r)%40;
     if(isEnemyEntry(color,abs)) continue; // transparent
-    // only OPPONENT pieces block the sprint path — but NOT at the landing cell (can kick)
-    if(r===relEnd) continue; // landing cell: opponent can be kicked, not a blocker
-    const blocked=G.players.some(oc=>oc!==color &&
-      G.pieces[oc].some(op=>!op.inBarn&&!op.finished&&op.pos<40&&op.pos===abs)
-    );
+    if(r===relEnd) {
+      // landing cell: own pieces block, opponents can be kicked
+      const friendlyBlocking=G.pieces[color].some(
+        (op,j)=>j!==i&&!op.inBarn&&!op.finished&&op.pos<40&&op.pos===abs
+      );
+      if(friendlyBlocking) return false;
+      continue;
+    }
+    // intermediate: any piece blocks
+    const blocked=G.players.some(oc=>G.pieces[oc].some(
+      (op,j)=>!op.inBarn&&!op.finished&&op.pos<40&&op.pos===abs&&!(oc===color&&j===i)
+    ));
     if(blocked) return false;
   }
   return true;
@@ -540,12 +573,12 @@ function computeTarget(color,i) {
       rel=nextRel; // pass through, no step consumed
       continue;
     }
-    // Cannot pass THROUGH an opponent piece (can only land ON them)
+    // Cannot pass THROUGH any piece (own or opponent). Can still land ON an opponent (kick).
     if(steps>1) {
-      const opBlocking=G.players.some(oc=>oc!==color&&G.pieces[oc].some(
-        op=>!op.inBarn&&!op.finished&&op.pos<40&&op.pos===nextAbs
+      const blocked=G.players.some(oc=>G.pieces[oc].some(
+        (op,j)=>!op.inBarn&&!op.finished&&op.pos<40&&op.pos===nextAbs&&!(oc===color&&j===i)
       ));
-      if(opBlocking) return null;
+      if(blocked) return null;
     }
     rel=nextRel; steps--;
   }
@@ -731,19 +764,76 @@ function roll() {
   if(G.phase!=='roll') return;
   if(G.winners.includes(cur())) { nextTurn(); return; }
   setBR(false);
+
+  if(G.diceMode===2 && !G.extraOneDie) {
+    // Animate both dice simultaneously
+    const de=document.getElementById('dice');
+    const de2=document.getElementById('dice2');
+    if(de2) de2.classList.add('rolling');
+    de.classList.add('rolling');
+    let n=0;
+    const iv=setInterval(()=>{
+      drawDiceOn('dice', Math.ceil(Math.random()*6));
+      drawDiceOn('dice2', Math.ceil(Math.random()*6));
+      if(++n>=8) {
+        clearInterval(iv);
+        const v1=Math.ceil(Math.random()*6), v2=Math.ceil(Math.random()*6);
+        G.dice=v1; G.dice2=v2;
+        drawDiceOn('dice', v1); drawDiceOn('dice2', v2);
+        de.classList.remove('rolling'); if(de2) de2.classList.remove('rolling');
+        afterRoll2(v1, v2);
+      }
+    },60);
+    return;
+  }
+
+  if(G.diceMode===2 && G.extraOneDie) {
+    // Re-roll only the die that had the 6 (extraDieSlot)
+    const slot=G.extraDieSlot;
+    const rollId=slot===0?'dice':'dice2';
+    const keepId=slot===0?'dice2':'dice';
+    G.extraOneDie=false; G.extraDieSlot=-1;
+    const de=document.getElementById(rollId);
+    de.classList.remove('reroll-die'); de.classList.add('rolling');
+    let n=0;
+    const iv=setInterval(()=>{
+      drawDiceOn(rollId, Math.ceil(Math.random()*6));
+      if(++n>=8) {
+        clearInterval(iv);
+        const v=Math.ceil(Math.random()*6);
+        drawDiceOn(rollId, v); de.classList.remove('rolling');
+        // Place result back into dice2Roll at the correct slot
+        G.dice2Roll[slot]=v;
+        G.dice2Avail=[slot===0, slot===1]; // only the re-rolled slot is available
+        G.activeDie2=-1;
+        const cc=cur();
+        addLog(pIcon(cc)+' '+PNAMES[cc]+' tung lại được '+v+(v===6?' ✨':''));
+        // Restore the kept die to used-die visual
+        renderDice2Highlight();
+        // Activate the re-rolled die slot (auto or pick)
+        activateDie2Slot(slot, true);
+      }
+    },60);
+    return;
+  }
+
+  // 1-dice mode
   const de=document.getElementById('dice'); de.classList.add('rolling');
   let n=0;
   const iv=setInterval(()=>{
-    setDV(Math.ceil(Math.random()*6));
+    drawDiceOn('dice', Math.ceil(Math.random()*6));
     if(++n>=8) {
       clearInterval(iv); const v=Math.ceil(Math.random()*6);
-      G.dice=v; setDV(v); de.classList.remove('rolling'); afterRoll(v);
+      G.dice=v; drawDiceOn('dice',v); de.classList.remove('rolling'); afterRoll(v);
     }
   },60);
 }
 
 function humanRoll() { if(G.phase==='roll') roll(); }
 
+// -------------------------------------------------------
+//  1-DICE TURN FLOW
+// -------------------------------------------------------
 function afterRoll(v) {
   G.rollsInTurn++;
   const cc=cur();
@@ -763,9 +853,7 @@ function afterRoll(v) {
   G.phase='move';
   if(mv.length===1) {
     render();
-    setTimeout(()=>{
-      animateMove(cc, mv[0], ()=>afterMove(v));
-    }, 350);
+    setTimeout(()=>{ animateMove(cc, mv[0], ()=>afterMove(v)); }, 350);
     return;
   }
   render();
@@ -789,11 +877,177 @@ function pickPiece(i) {
   const cc=cur();
   if(!movable(cc).includes(i)) return;
   const rv=G.dice;
-  G.phase='anim'; // prevent double-click during animation
+  G.phase='anim';
   render();
+  setTimeout(()=>{ animateMove(cc, i, ()=>afterMove(rv)); }, 100);
+}
+
+// -------------------------------------------------------
+//  2-DICE TURN FLOW
+// -------------------------------------------------------
+function afterRoll2(v1, v2) {
+  G.rollsInTurn++;
+  const cc=cur();
+  const both6=(v1===6&&v2===6);
+  addLog(pIcon(cc)+' '+PNAMES[cc]+' tung được ['+v1+', '+v2+']'+(both6?' 🎲🎲 DOUBLE 6!':v1===6||v2===6?' ✨':''));
+  G.dice2Roll=[v1,v2];
+  G.dice2Avail=[true,true];
+  G.activeDie2=-1;
+  enterDice2Phase();
+}
+
+// Entry point after each die is resolved (or at start of turn).
+function enterDice2Phase() {
+  const cc=cur();
+  const remaining=G.dice2Avail.map((a,i)=>a?i:-1).filter(i=>i>=0);
+  if(remaining.length===0) {
+    // All dice used — determine extra turn based on original rolls
+    G.phase='roll'; G.activeDie2=-1;
+    renderDice2Highlight(); render(); setSt();
+    const sixCount=G.dice2Roll.filter(v=>v===6).length;
+    if(sixCount===2) {
+      addLog(pIcon(cc)+' 🎲🎲 Double 6 — tung lại cả 2 xúc xắc! 🎉');
+      setSt('Double 6 — tung lại cả 2!');
+      G.rollsInTurn=0; setTimeout(()=>{ setBR(true); maybeAITurn(); },700);
+    } else if(sixCount===1) {
+      G.extraDieSlot=G.dice2Roll.indexOf(6); // track which slot had the 6
+      addLog(pIcon(cc)+' 🎉 Tung 6 — được tung thêm 1 xúc xắc!');
+      setSt('Tung 6 — tung thêm 1 xúc xắc!');
+      G.rollsInTurn=0; G.extraOneDie=true;
+      // Visually mark: reroll-die for the 6 slot, keep other as used-die
+      const d=[document.getElementById('dice'),document.getElementById('dice2')];
+      d.forEach((el,s)=>{ if(!el) return; el.classList.remove('active-die','selectable-die','used-die','reroll-die'); el.classList.add(s===G.extraDieSlot?'reroll-die':'used-die'); });
+      setTimeout(()=>{ setBR(true); maybeAITurn(); },700);
+    } else {
+      setTimeout(nextTurn,600);
+    }
+    return;
+  }
+  if(remaining.length===2) {
+    // Check if neither die has any valid moves → auto-lose turn
+    const hasMoves0 = (()=>{ G.dice=G.dice2Roll[0]; return movable(cc).length>0; })();
+    const hasMoves1 = (()=>{ G.dice=G.dice2Roll[1]; return movable(cc).length>0; })();
+    if(!hasMoves0 && !hasMoves1) {
+      addLog(pIcon(cc)+' mất lượt (không có nước đi cho cả 2 xúc xắc)');
+      setSt('Không có nước đi — mất lượt');
+      G.dice2Avail=[false,false];
+      G.phase='roll'; G.activeDie2=-1;
+      renderDice2Highlight(); render();
+      setTimeout(nextTurn,1200);
+      return;
+    }
+    // Both dice available — player picks which die to use first
+    G.phase='diceselect'; G.activeDie2=-1;
+    renderDice2Highlight(); render();
+    setSt('Chọn xúc xắc muốn dùng trước ☝️');
+    if(G.isAI[cc]) setTimeout(()=>{ if(G.phase==='diceselect') aiSelectDie2(); },800);
+    return;
+  }
+  // 1 remaining die — behaves like 1-die mode (auto if only 1 option)
+  activateDie2Slot(remaining[0], true);
+}
+
+// Activate a specific die slot (0=dice1, 1=dice2) for movement.
+function activateDie2Slot(slot, isLast) {
+  const cc=cur();
+  const dv=G.dice2Roll[slot];
+  G.dice=dv; G.activeDie2=slot;
+  renderDice2Highlight();
+  const mv=movable(cc);
+  if(mv.length===0) {
+    addLog(pIcon(cc)+' không có nước đi cho xúc xắc '+dv+' — bỏ qua');
+    G.dice2Avail[slot]=false;
+    renderDice2Highlight();
+    setTimeout(()=>enterDice2Phase(),700);
+    return;
+  }
+  // Single valid move → auto-move always (regardless of first or last die)
+  if(mv.length===1) {
+    G.phase='anim'; render();
+    setTimeout(()=>{
+      animateMove(cc, mv[0], ()=>{
+        G.dice2Avail[slot]=false;
+        if(G.winners.includes(cc)){ render(); setTimeout(nextTurn,600); return; }
+        render(); enterDice2Phase();
+      });
+    },350);
+    return;
+  }
+  G.phase='move2'; render();
+  setSt('Chọn quân di chuyển <b>'+dv+'</b> bước');
+  if(G.isAI[cc]) {
+    const best=pickAIMove(cc,mv);
+    setTimeout(()=>{ if(G.phase==='move2') pickPiece2(best); },700);
+  }
+}
+
+// Called when player clicks a dice canvas in diceselect phase.
+function selectActiveDie2(slot) {
+  if(G.phase!=='diceselect') return;
+  if(!G.dice2Avail[slot]) return;
+  activateDie2Slot(slot, false);
+}
+
+// AI: choose which die slot gives the highest-priority move.
+function aiSelectDie2() {
+  const cc=cur();
+  let bestSlot=-1, bestPri=-1;
+  for(let s=0;s<2;s++) {
+    if(!G.dice2Avail[s]) continue;
+    G.dice=G.dice2Roll[s];
+    const mv=movable(cc);
+    if(!mv.length) continue;
+    const pri=getAIMovePriority(cc,mv);
+    if(pri>bestPri){ bestPri=pri; bestSlot=s; }
+  }
+  if(bestSlot<0){ G.dice2Avail=[false,false]; enterDice2Phase(); return; }
+  selectActiveDie2(bestSlot);
+}
+
+function getAIMovePriority(color, movableArr) {
+  for(const i of movableArr) {
+    const t=computeTarget(color,i); if(!t) continue;
+    const landPos=t.type==='path'?t.na:(t.type==='out'?ENTRY[color]:null);
+    if(landPos!==null) {
+      const canKick=G.players.some(oc=>oc!==color&&G.pieces[oc].some(
+        op=>!op.inBarn&&!op.finished&&op.pos<40&&op.pos===landPos&&landPos!==ENTRY[oc]
+      ));
+      if(canKick) return 3;
+    }
+    if(t.type==='out') return 2;
+  }
+  return 1;
+}
+
+function pickPiece2(i) {
+  if(G.phase!=='move2') return;
+  const cc=cur();
+  if(!movable(cc).includes(i)) return;
+  const slot=G.activeDie2;
+  G.dice2Avail[slot]=false;
+  G.phase='anim';
+  renderDice2Highlight(); render();
   setTimeout(()=>{
-    animateMove(cc, i, ()=>afterMove(rv));
-  }, 100);
+    animateMove(cc,i,()=>{
+      if(G.winners.includes(cc)){ render(); setTimeout(nextTurn,600); return; }
+      render(); enterDice2Phase();
+    });
+  },100);
+}
+
+// Update visual state of both dice canvases.
+function renderDice2Highlight() {
+  const d1=document.getElementById('dice');
+  const d2=document.getElementById('dice2');
+  if(!d1||!d2||G.diceMode!==2) return;
+  // During extraOneDie wait state, highlight is set directly in enterDice2Phase — don't override
+  if(G.extraOneDie) return;
+  for(const [el,slot] of [[d1,0],[d2,1]]) {
+    el.classList.remove('active-die','selectable-die','used-die','reroll-die');
+    if(!G.dice2Avail[slot]) { el.classList.add('used-die'); continue; }
+    if(G.phase==='diceselect') el.classList.add('selectable-die');
+    else if(G.activeDie2===slot) el.classList.add('active-die');
+  }
 }
 
 
@@ -803,13 +1057,21 @@ function pickPiece(i) {
 // =======================================================
 function render() {
   renderBoard(); renderSide();
-  if(G.dice) setDV(G.dice);
+  if(G.diceMode===2) {
+    if(G.dice2Roll[0]) drawDiceOn('dice',  G.dice2Roll[0]);
+    if(G.dice2Roll[1]) drawDiceOn('dice2', G.dice2Roll[1]);
+    renderDice2Highlight();
+  } else {
+    if(G.dice) drawDiceOn('dice', G.dice);
+  }
   setBR(G.phase==='roll'&&!G.winners.includes(cur()));
 }
 
 function renderBoard() {
   const brd=document.getElementById('board'); brd.innerHTML='';
-  const cc=cur(), mv=(G.phase==='move')?movable(cc):[];
+  const cc=cur();
+  const isPickPhase=(G.phase==='move'||G.phase==='move2');
+  const mv=isPickPhase?movable(cc):[];
   const cells=[]; // build all 121 cells
   for(let r=0;r<11;r++) for(let c=0;c<11;c++) {
     const el=document.createElement('div');
@@ -825,7 +1087,7 @@ function renderBoard() {
       const p=G.pieces[color][i]; if(!p.inBarn) continue;
       const [br,bc2]=bc[bi++]||[0,0]; const el=at(br,bc2);
       el.appendChild(mkP(color,i,mv,cc));
-      if(G.phase==='move'&&color===cc&&mv.includes(i)) el.classList.add('selectable');
+      if(isPickPhase&&color===cc&&mv.includes(i)) el.classList.add('selectable');
     }
   }
 
@@ -840,11 +1102,11 @@ function renderBoard() {
     const [r,c]=k.split(',').map(Number), el=at(r,c);
     if(arr.length===1) {
       const {color,i}=arr[0]; el.appendChild(mkP(color,i,mv,cc));
-      if(G.phase==='move'&&color===cc&&mv.includes(i)) el.classList.add('selectable');
+      if(isPickPhase&&color===cc&&mv.includes(i)) el.classList.add('selectable');
     } else {
       const w=document.createElement('div'); w.className='stack';
       arr.forEach(({color,i})=>w.appendChild(mkP(color,i,mv,cc))); el.appendChild(w);
-      if(G.phase==='move'&&arr.some(a=>a.color===cc&&mv.includes(a.i))) el.classList.add('selectable');
+      if(isPickPhase&&arr.some(a=>a.color===cc&&mv.includes(a.i))) el.classList.add('selectable');
     }
   }
 
@@ -853,7 +1115,7 @@ function renderBoard() {
     const p=G.pieces[color][i]; if(p.finished||p.pos<40) continue;
     const li=p.pos-40; const {r,c}=HOME[color][li]; const el=at(r,c);
     el.appendChild(mkP(color,i,mv,cc));
-    if(G.phase==='move'&&color===cc&&mv.includes(i)) el.classList.add('selectable');
+    if(isPickPhase&&color===cc&&mv.includes(i)) el.classList.add('selectable');
   }});
 }
 
@@ -865,9 +1127,10 @@ function mkP(color,i,mv,cc) {
     img.style.cssText='width:28px;height:28px;object-fit:contain;pointer-events:none;';
     el.appendChild(img);
   }
-  if(G.phase==='move'&&color===cc&&mv.includes(i)) {
+  const isPickPhase=(G.phase==='move'||G.phase==='move2');
+  if(isPickPhase&&color===cc&&mv.includes(i)) {
     el.classList.add('clickable');
-    el.onclick=e=>{ e.stopPropagation(); pickPiece(i); };
+    el.onclick=e=>{ e.stopPropagation(); G.phase==='move2'?pickPiece2(i):pickPiece(i); };
   }
   return el;
 }
@@ -895,8 +1158,8 @@ const DICE_DOTS = {
   5: [[24,21],[64,21],[44,44],[24,67],[64,67]],
   6: [[24,19],[24,44],[24,69],[64,19],[64,44],[64,69]]
 };
-function drawDice(v) {
-  const c=document.getElementById('dice'); if(!c) return;
+function drawDiceOn(id, v) {
+  const c=document.getElementById(id); if(!c) return;
   const ctx=c.getContext('2d'), s=88;
   ctx.clearRect(0,0,s,s);
   ctx.fillStyle='#ffffff'; ctx.fillRect(0,0,s,s);
@@ -907,7 +1170,8 @@ function drawDice(v) {
     ctx.arc(x,y,8,0,Math.PI*2); ctx.fill();
   });
 }
-function setDV(v){ drawDice(v||1); }
+function drawDice(v){ drawDiceOn('dice',v); }
+function setDV(v){ drawDiceOn('dice',v||1); }
 function setBR(en){ document.getElementById('btn-roll').disabled=!en; }
 function setSt(m) {
   const el=document.getElementById('status');
@@ -917,7 +1181,16 @@ function setSt(m) {
   }
   const cc=cur();
   const isRoll=G.phase==='roll';
-  const msg=isRoll?'Hãy tung xúc xắc!':('Chọn quân di chuyển <b>'+G.dice+'</b> bước');
+  let msg;
+  if(isRoll) {
+    msg='Hãy tung xúc xắc!';
+  } else if(G.phase==='diceselect') {
+    msg='Chọn xúc xắc muốn dùng trước ☝️';
+  } else if(G.phase==='move2') {
+    msg='Chọn quân di chuyển <b>'+G.dice+'</b> bước';
+  } else {
+    msg='Chọn quân di chuyển <b>'+G.dice+'</b> bước';
+  }
   el.innerHTML=
     '<div class="st-top">'+
       '<img src="'+PICON[cc]+'" alt="'+PNAMES[cc]+'">'+
@@ -953,7 +1226,13 @@ function showWin(color) {
 // ---------- Setup step logic ----------
 const PLAYER_BG_SETUP    = {red:'rgba(239,68,68,.2)', green:'rgba(34,197,94,.2)', blue:'rgba(59,130,246,.2)', yellow:'rgba(234,179,8,.2)'};
 const PLAYER_BORDER_SETUP= {red:'rgba(239,68,68,.5)', green:'rgba(34,197,94,.5)', blue:'rgba(59,130,246,.5)', yellow:'rgba(234,179,8,.5)'};
-let setupState = {n:2, players:[], aiFlags:{}};
+let setupState = {n:2, players:[], aiFlags:{}, diceMode:1};
+
+function selectDiceMode(m) {
+  setupState.diceMode = m;
+  document.getElementById('dm1').classList.toggle('active', m===1);
+  document.getElementById('dm2').classList.toggle('active', m===2);
+}
 
 function setupChooseCount(n) {
   setupState.n = n;
@@ -1000,9 +1279,14 @@ function startGameFromSetup() {
   GRID = buildGrid();
   initGame(setupState.n);
   setupState.players.forEach(c => { G.isAI[c] = setupState.aiFlags[c]; });
+  G.diceMode = setupState.diceMode;
+  // Show/hide 2nd dice canvas
+  const d2 = document.getElementById('dice2');
+  d2.style.display = G.diceMode===2 ? 'block' : 'none';
   render(); setSt();
   const hasAI = setupState.players.some(c => setupState.aiFlags[c]);
-  addLog('🎮 Trò chơi bắt đầu! ' + (hasAI ? 'Chúc may mắn với AI! 🤖' : 'Chúc vui vẻ! 🎲'));
+  const diceInfo = G.diceMode===2 ? ' (2 xúc xắc)' : '';
+  addLog('🎮 Trò chơi bắt đầu'+diceInfo+'! ' + (hasAI ? 'Chúc may mắn với AI! 🤖' : 'Chúc vui vẻ! 🎲'));
   setBR(true);
   maybeAITurn();
 }
@@ -1049,13 +1333,23 @@ function resetGame() {
   document.getElementById('setup-step2').style.display = 'none';
   document.getElementById('setup-step1').style.display = 'flex';
   document.getElementById('setup').style.display = 'flex';
+  // Reset dice mode toggle to 1 by default
+  selectDiceMode(setupState.diceMode||1);
+  // Hide 2nd dice until next game starts
+  document.getElementById('dice2').style.display='none';
 }
 
 document.addEventListener('keydown',e=>{
   if(e.code==='Space'&&G.phase==='roll'){e.preventDefault();roll();}
 });
-document.getElementById('dice').addEventListener('click',()=>{ if(G.phase==='roll') roll(); });
-drawDice(1);
+document.getElementById('dice').addEventListener('click',()=>{
+  if(G.phase==='roll') roll();
+  else if(G.phase==='diceselect') selectActiveDie2(0);
+});
+document.getElementById('dice2').addEventListener('click',()=>{
+  if(G.phase==='diceselect') selectActiveDie2(1);
+});
+drawDiceOn('dice',1);
 </script>
 </body>
 </html>
