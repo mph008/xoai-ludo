@@ -218,6 +218,18 @@
     }
     .cbtn span{font-size:.6rem;margin-top:2px;color:#fca5a5}
     .cbtn:hover{background:rgba(220,38,38,.3);border-color:var(--gold);transform:scale(1.06);box-shadow:0 0 20px rgba(212,175,55,.4)}
+    /* Setup step 2 */
+    #setup-step2{display:none;flex-direction:column;align-items:center;gap:16px}
+    #setup-players{display:flex;flex-direction:column;gap:10px}
+    .sp-row{display:flex;align-items:center;gap:12px;border-radius:12px;padding:10px 14px;width:300px;transition:all .2s;border:1px solid transparent}
+    .sp-toggle{padding:5px 14px;border-radius:8px;border:1px solid rgba(255,255,255,.3);background:rgba(255,255,255,.08);color:#fff;font-size:.75rem;font-weight:700;cursor:pointer;transition:all .2s;white-space:nowrap}
+    .sp-toggle.ai{background:rgba(99,102,241,.35);border-color:rgba(99,102,241,.7);color:#c7d2fe}
+    .sp-toggle.locked{opacity:.5;cursor:default;border-color:rgba(255,255,255,.15)}
+    .sp-badge{font-size:.65rem;padding:2px 7px;border-radius:99px;background:rgba(212,175,55,.25);color:var(--gold);font-weight:700;white-space:nowrap}
+    .sback-btn{background:none;border:1px solid rgba(255,255,255,.2);color:#fca5a5;font-size:.78rem;padding:5px 16px;border-radius:8px;cursor:pointer}
+    .sback-btn:hover{background:rgba(255,255,255,.08)}
+    .sstart-btn{padding:12px 40px;background:linear-gradient(135deg,#dc2626,#7f1d1d);color:#fff;border:none;border-radius:14px;font-size:1.1rem;font-weight:900;cursor:pointer;letter-spacing:1px;box-shadow:0 4px 20px rgba(220,38,38,.5);transition:all .2s}
+    .sstart-btn:hover{background:linear-gradient(135deg,#ef4444,#991b1b);transform:translateY(-2px)}
 
     /* WIN */
     #win{display:none;position:fixed;inset:0;background:rgba(0,0,0,.82);z-index:200;align-items:center;justify-content:center;}
@@ -250,30 +262,41 @@
 
 <!-- Setup -->
 <div id="setup">
-  <h2>🎲 Xoài chơi cá ngựa</h2>
-  <p>Chọn số người chơi (tất cả sẽ tự tung xúc xắc)</p>
-  <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;width:280px">
-    <div style="display:flex;align-items:center;gap:10px;background:rgba(239,68,68,.18);border:1px solid rgba(239,68,68,.4);border-radius:12px;padding:10px 14px">
-      <img src="https://img.icons8.com/?size=96&id=12268&format=png" style="width:40px;height:40px;object-fit:contain;flex-shrink:0">
-      <span style="font-weight:700;color:#fca5a5;font-size:.88rem">Iron Man</span>
+  <!-- Step 1: choose number of players -->
+  <div id="setup-step1" style="display:flex;flex-direction:column;align-items:center;gap:18px">
+    <h2>🎲 Xoài chơi cá ngựa</h2>
+    <p>Chọn số người chơi</p>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;width:280px">
+      <div style="display:flex;align-items:center;gap:10px;background:rgba(239,68,68,.18);border:1px solid rgba(239,68,68,.4);border-radius:12px;padding:10px 14px">
+        <img src="https://img.icons8.com/?size=96&id=12268&format=png" style="width:40px;height:40px;object-fit:contain;flex-shrink:0">
+        <span style="font-weight:700;color:#fca5a5;font-size:.88rem">Iron Man</span>
+      </div>
+      <div style="display:flex;align-items:center;gap:10px;background:rgba(34,197,94,.18);border:1px solid rgba(34,197,94,.4);border-radius:12px;padding:10px 14px">
+        <img src="https://img.icons8.com/?size=96&id=38038&format=png" style="width:40px;height:40px;object-fit:contain;flex-shrink:0">
+        <span style="font-weight:700;color:#86efac;font-size:.88rem">Hulk</span>
+      </div>
+      <div style="display:flex;align-items:center;gap:10px;background:rgba(59,130,246,.18);border:1px solid rgba(59,130,246,.4);border-radius:12px;padding:10px 14px">
+        <img src="https://img.icons8.com/?size=96&id=11826&format=png" style="width:40px;height:40px;object-fit:contain;flex-shrink:0">
+        <span style="font-weight:700;color:#93c5fd;font-size:.88rem">Cap. America</span>
+      </div>
+      <div style="display:flex;align-items:center;gap:10px;background:rgba(234,179,8,.18);border:1px solid rgba(234,179,8,.4);border-radius:12px;padding:10px 14px">
+        <img src="https://img.icons8.com/?size=96&id=118482&format=png" style="width:40px;height:40px;object-fit:contain;flex-shrink:0">
+        <span style="font-weight:700;color:#fde047;font-size:.88rem">Thanos</span>
+      </div>
     </div>
-    <div style="display:flex;align-items:center;gap:10px;background:rgba(34,197,94,.18);border:1px solid rgba(34,197,94,.4);border-radius:12px;padding:10px 14px">
-      <img src="https://img.icons8.com/?size=96&id=38038&format=png" style="width:40px;height:40px;object-fit:contain;flex-shrink:0">
-      <span style="font-weight:700;color:#86efac;font-size:.88rem">Hulk</span>
-    </div>
-    <div style="display:flex;align-items:center;gap:10px;background:rgba(59,130,246,.18);border:1px solid rgba(59,130,246,.4);border-radius:12px;padding:10px 14px">
-      <img src="https://img.icons8.com/?size=96&id=11826&format=png" style="width:40px;height:40px;object-fit:contain;flex-shrink:0">
-      <span style="font-weight:700;color:#93c5fd;font-size:.88rem">Cap. America</span>
-    </div>
-    <div style="display:flex;align-items:center;gap:10px;background:rgba(234,179,8,.18);border:1px solid rgba(234,179,8,.4);border-radius:12px;padding:10px 14px">
-      <img src="https://img.icons8.com/?size=96&id=118482&format=png" style="width:40px;height:40px;object-fit:contain;flex-shrink:0">
-      <span style="font-weight:700;color:#fde047;font-size:.88rem">Thanos</span>
+    <div class="choices">
+      <button class="cbtn" onclick="setupChooseCount(2)">2<span>người</span></button>
+      <button class="cbtn" onclick="setupChooseCount(3)">3<span>người</span></button>
+      <button class="cbtn" onclick="setupChooseCount(4)">4<span>người</span></button>
     </div>
   </div>
-  <div class="choices">
-    <button class="cbtn" onclick="startGame(2)">2<span>người</span></button>
-    <button class="cbtn" onclick="startGame(3)">3<span>người</span></button>
-    <button class="cbtn" onclick="startGame(4)">4<span>người</span></button>
+  <!-- Step 2: choose human/AI per player -->
+  <div id="setup-step2">
+    <h2>⚔️ Người chơi</h2>
+    <p>Chọn người thật hoặc AI cho từng nhân vật</p>
+    <div id="setup-players"></div>
+    <button class="sstart-btn" onclick="startGameFromSetup()">🚀 Bắt đầu!</button>
+    <button class="sback-btn" onclick="setupGoBack()">← Quay lại</button>
   </div>
 </div>
 
@@ -701,6 +724,7 @@ function nextTurn(extra) {
   G.phase='roll';  // keep G.dice as-is so dice display stays on previous roll
   render(); setSt();
   setBR(true);
+  maybeAITurn();
 }
 
 function roll() {
@@ -730,7 +754,7 @@ function afterRoll(v) {
       addLog(pIcon(cc)+' tung 6 nhưng không có nước đi — xúc lại! 🎲');
       setSt('Tung 6 không có nước đi — Xúc lại!');
       G.rollsInTurn=0; G.phase='roll';
-      setTimeout(()=>setBR(true),900); return;
+      setTimeout(()=>{ setBR(true); maybeAITurn(); },900); return;
     }
     addLog(pIcon(cc)+' mất lượt (không có nước đi)');
     setSt('Không có nước đi — mất lượt');
@@ -746,13 +770,17 @@ function afterRoll(v) {
   }
   render();
   setSt('Chọn quân di chuyển '+v+' bước');
+  if(G.isAI[cc]) {
+    const best = pickAIMove(cc, mv);
+    setTimeout(() => { if(G.phase==='move') pickPiece(best); }, 700);
+  }
 }
 
 function afterMove(rv) {
   G.phase='roll'; const cc=cur();
   if(G.winners.includes(cc)) { render(); setTimeout(nextTurn,600); return; }
   render();
-  if(rv===6) { addLog(pIcon(cc)+' tung 6 — được tung thêm! 🎉'); setSt('Tung 6 — được tung thêm!'); G.rollsInTurn=0; setTimeout(()=>setBR(true),700); return; }
+  if(rv===6) { addLog(pIcon(cc)+' tung 6 — được tung thêm! 🎉'); setSt('Tung 6 — được tung thêm!'); G.rollsInTurn=0; setTimeout(()=>{ setBR(true); maybeAITurn(); },700); return; }
   setTimeout(nextTurn,600);
 }
 
@@ -921,15 +949,106 @@ function showWin(color) {
   document.getElementById('win-s').innerHTML=pIcon(color)+' đã đưa hết 4 quân về đích!';
   document.getElementById('win').classList.add('show');
 }
-function startGame(n) {
-  document.getElementById('setup').style.display='none';
-  GRID=buildGrid(); initGame(n); render(); setSt();
-  addLog('🎮 Trò chơi bắt đầu! Chúc vui vẻ! 🎲');
-  setBR(true);
+
+// ---------- Setup step logic ----------
+const PLAYER_BG_SETUP    = {red:'rgba(239,68,68,.2)', green:'rgba(34,197,94,.2)', blue:'rgba(59,130,246,.2)', yellow:'rgba(234,179,8,.2)'};
+const PLAYER_BORDER_SETUP= {red:'rgba(239,68,68,.5)', green:'rgba(34,197,94,.5)', blue:'rgba(59,130,246,.5)', yellow:'rgba(234,179,8,.5)'};
+let setupState = {n:2, players:[], aiFlags:{}};
+
+function setupChooseCount(n) {
+  setupState.n = n;
+  setupState.players = n===2?['red','green']:n===3?['red','yellow','green']:['red','yellow','green','blue'];
+  setupState.aiFlags = {};
+  setupState.players.forEach(c => { setupState.aiFlags[c] = false; });
+  renderSetupStep2();
+  document.getElementById('setup-step1').style.display = 'none';
+  document.getElementById('setup-step2').style.display = 'flex';
 }
+
+function renderSetupStep2() {
+  const container = document.getElementById('setup-players');
+  container.innerHTML = setupState.players.map((color, idx) => {
+    const isAI = setupState.aiFlags[color];
+    const isFirst = idx === 0;
+    const bg     = isAI ? 'rgba(99,102,241,.18)' : PLAYER_BG_SETUP[color];
+    const border = isAI ? 'rgba(99,102,241,.5)'  : PLAYER_BORDER_SETUP[color];
+    const badge  = isFirst ? '<span class="sp-badge">👑 Bạn</span>' : '';
+    const toggle = isFirst
+      ? '<span class="sp-toggle locked">👤 Người</span>'
+      : `<button class="sp-toggle${isAI?' ai':''}" onclick="toggleSetupAI('${color}')">${isAI?'🤖 AI':'👤 Người'}</button>`;
+    return `<div class="sp-row" style="background:${bg};border-color:${border}">
+      <img src="${PICON[color]}" style="width:36px;height:36px;object-fit:contain;flex-shrink:0">
+      <span style="font-weight:700;color:#fff;font-size:.9rem;flex:1">${PNAMES[color]}</span>
+      ${badge}${toggle}
+    </div>`;
+  }).join('');
+}
+
+function toggleSetupAI(color) {
+  if(color === setupState.players[0]) return;
+  setupState.aiFlags[color] = !setupState.aiFlags[color];
+  renderSetupStep2();
+}
+
+function setupGoBack() {
+  document.getElementById('setup-step2').style.display = 'none';
+  document.getElementById('setup-step1').style.display = 'flex';
+}
+
+function startGameFromSetup() {
+  document.getElementById('setup').style.display = 'none';
+  GRID = buildGrid();
+  initGame(setupState.n);
+  setupState.players.forEach(c => { G.isAI[c] = setupState.aiFlags[c]; });
+  render(); setSt();
+  const hasAI = setupState.players.some(c => setupState.aiFlags[c]);
+  addLog('🎮 Trò chơi bắt đầu! ' + (hasAI ? 'Chúc may mắn với AI! 🤖' : 'Chúc vui vẻ! 🎲'));
+  setBR(true);
+  maybeAITurn();
+}
+
+// ---------- AI logic ----------
+function maybeAITurn() {
+  if(G.phase !== 'roll') return;
+  const cc = cur();
+  if(G.isAI[cc] && !G.winners.includes(cc)) {
+    setTimeout(() => { if(G.phase === 'roll') roll(); }, 1000);
+  }
+}
+
+function pickAIMove(color, movableArr) {
+  // Priority 1: land on opponent (kick them)
+  for(const i of movableArr) {
+    const t = computeTarget(color, i);
+    if(!t) continue;
+    const landPos = t.type === 'path' ? t.na : (t.type === 'out' ? ENTRY[color] : null);
+    if(landPos !== null) {
+      const canKick = G.players.some(oc => oc !== color && G.pieces[oc].some(
+        op => !op.inBarn && !op.finished && op.pos < 40 && op.pos === landPos && landPos !== ENTRY[oc]
+      ));
+      if(canKick) return i;
+    }
+  }
+  // Priority 2: exit barn (bring new piece out)
+  for(const i of movableArr) {
+    const t = computeTarget(color, i);
+    if(t && t.type === 'out') return i;
+  }
+  // Priority 3: piece with most progress
+  let bestI = movableArr[0], bestDist = -1;
+  for(const i of movableArr) {
+    const p = G.pieces[color][i];
+    const dist = p.inBarn ? -1 : (p.pos >= 40 ? 100 + p.pos : traveled(color, p.pos));
+    if(dist > bestDist) { bestDist = dist; bestI = i; }
+  }
+  return bestI;
+}
+
 function resetGame() {
   document.getElementById('win').classList.remove('show');
-  document.getElementById('setup').style.display='flex';
+  document.getElementById('setup-step2').style.display = 'none';
+  document.getElementById('setup-step1').style.display = 'flex';
+  document.getElementById('setup').style.display = 'flex';
 }
 
 document.addEventListener('keydown',e=>{
